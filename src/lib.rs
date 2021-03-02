@@ -10,6 +10,7 @@ use core::panic::PanicInfo;
 pub mod serial;
 pub mod vga_buffer;
 pub mod interrupts;
+pub mod global_descriptor_table;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u32)]
@@ -35,7 +36,9 @@ where
     T: Fn(),
 {
     fn run(&self) {
-        serial_print!("{}...\t", core::any::type_name::<T>());
+        let test_function_name = core::any::type_name::<T>();
+        serial_print!("{}", test_function_name);
+        serial_print!("{:.<1$}", "", 60 - test_function_name.len());
         self();
         serial_println!("[ok]");
     }
@@ -72,5 +75,6 @@ fn panic(info: &PanicInfo) -> ! {
 }
 
 pub fn init() {
+    global_descriptor_table::init();
     interrupts::init_idt();
 }
