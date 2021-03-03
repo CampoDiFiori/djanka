@@ -5,7 +5,7 @@
 #![reexport_test_harness_main = "test_main"]
 
 use core::panic::PanicInfo;
-use djanka::{println};
+use djanka::{hlt_loop, println};
 
 #[no_mangle]
 pub extern "C" fn _start() -> ! {
@@ -13,10 +13,7 @@ pub extern "C" fn _start() -> ! {
 
     djanka::init();
 
-    #[cfg(test)]
-    test_main();
-
-    loop {}
+    hlt_loop();
 }
 
 /// This function is called on panic.

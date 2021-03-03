@@ -1,6 +1,9 @@
 use core::fmt;
 
 use fmt::Result;
+use x86_64::instructions::interrupts::without_interrupts;
+
+use crate::interrupts;
 
 #[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -143,7 +146,14 @@ macro_rules! println {
 #[doc(hidden)]
 pub fn _print(args: fmt::Arguments) {
     use core::fmt::Write;
-    WRITER.lock().write_fmt(args).unwrap();
+    use x86_64::instructions::interrupts;
+
+    // we need to disable the interrupts while we hold a lock on WRITER
+    // otherwise, we could experience an interrupt, whose handler will try to lock
+    // WRITER again and cause a deadlock
+    interrupts::without_interrupts(|| {
+        WRITER.lock().write_fmt(args).unwrap();
+    })
 }
 
 #[test_case]
@@ -160,11 +170,16 @@ fn test_println_many() {
 
 #[test_case]
 fn test_prinln_output() {
+    use core::fmt::Write;
+
     let s  = "Some line below 80 characters";
-    println!("{}", s);
-    for (i, c) in s.chars().enumerate() {
-        // read at the end is there because of `volatile`
-        let char_on_screen = WRITER.lock().buffer.chars[BUFFER_HEIGHT - 2][i].read();
-        assert_eq!(char::from(char_on_screen.ascii_character), c);
-    }
+    
+    x86_64::instructions::interrupts::without_interrupts(|| {
+        let mut writer = WRITER.lock();
+        writeln!(writer, "\n{}", s).expect("writeln failed");
+        for (i, c) in s.chars().enumerate() {
+            let screen_char = writer.buffer.chars[BUFFER_HEIGHT - 2][i].read();
+            assert_eq!(char::from(screen_char.ascii_character), c);
+        }
+    });
 }
